@@ -1,8 +1,6 @@
 'use strict';
-// Prints our actual output next to the official RFC 8439 expected values.
-const chacha = require('./chacha20.js');
-const poly = require('./poly1305-fast.js');
-const aead = require('./aead.js');
+// Prints the shipped voidseal.js output next to the official RFC 8439 values.
+const V = require('./voidseal.js');
 
 const H = (b) => Buffer.from(b).toString('hex');
 const rows = (h) => h.match(/.{1,32}/g).map(r => '    ' + (r.match(/.{1,2}/g).join(' '))).join('\n');
@@ -22,9 +20,7 @@ console.log('='.repeat(54) + '\n RFC 8439 test vectors: ours vs the official ans
 {
   const key = new Uint8Array(32); for (let i = 0; i < 32; i++) key[i] = i;
   const nonce = Uint8Array.from([0,0,0,9, 0,0,0,0x4a, 0,0,0,0]);
-  const ks = chacha.block(
-    Uint32Array.from({ length: 8 }, (_, i) => (key[i*4]|key[i*4+1]<<8|key[i*4+2]<<16|key[i*4+3]<<24) >>> 0),
-    1, [(nonce[0]|nonce[1]<<8|nonce[2]<<16|nonce[3]<<24)>>>0,(nonce[4]|nonce[5]<<8|nonce[6]<<16|nonce[7]<<24)>>>0,(nonce[8]|nonce[9]<<8|nonce[10]<<16|nonce[11]<<24)>>>0]);
+  const ks = V.chacha20(key, nonce, 1, new Uint8Array(64)); // keystream = encrypt zeros
   console.log('--- ChaCha20 keystream block (key 00..1f, counter 1) ---');
   all &= show('64-byte keystream block:', H(ks),
     '10f1e7e4d13b5915500fdd1fa32071c4c7d1f4c733c068030422aa9ac3d46c4ed2826446079faa0914c2d705d98b02a2b5129cd1de164eb9cbd083e8a2503c4e');
@@ -35,7 +31,7 @@ console.log('='.repeat(54) + '\n RFC 8439 test vectors: ours vs the official ans
   const key = Buffer.from('85d6be7857556d337f4452fe42d506a80103808afb0db2fd4abff6af4149f51b', 'hex');
   const msg = Buffer.from('Cryptographic Forum Research Group');
   console.log('--- Poly1305 tag (message "Cryptographic Forum Research Group") ---');
-  all &= show('16-byte tag:', H(poly.poly1305(new Uint8Array(msg), new Uint8Array(key))), 'a8061dc1305136c6c22b8baf0c0127a9');
+  all &= show('16-byte tag:', H(V.poly1305(new Uint8Array(msg), new Uint8Array(key))), 'a8061dc1305136c6c22b8baf0c0127a9');
 }
 
 // ---- Full AEAD (RFC 2.8.2) ----
@@ -44,7 +40,7 @@ console.log('='.repeat(54) + '\n RFC 8439 test vectors: ours vs the official ans
   const nonce = Buffer.from('070000004041424344454647', 'hex');
   const ad = Buffer.from('50515253c0c1c2c3c4c5c6c7', 'hex');
   const pt = Buffer.from("Ladies and Gentlemen of the class of '99: If I could offer you only one tip for the future, sunscreen would be it.");
-  const { ciphertext, tag } = aead.seal(new Uint8Array(key), new Uint8Array(nonce), new Uint8Array(pt), new Uint8Array(ad));
+  const { ciphertext, tag } = V.seal(new Uint8Array(key), new Uint8Array(nonce), new Uint8Array(pt), new Uint8Array(ad));
   console.log('--- ChaCha20-Poly1305 AEAD (the sunscreen speech) ---');
   console.log('  plaintext: "' + pt.toString() + '"\n');
   all &= show('ciphertext (114 bytes):', H(ciphertext),
