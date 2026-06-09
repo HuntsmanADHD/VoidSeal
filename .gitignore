@@ -1,0 +1,8 @@
+# editor / OS cruft
+.directory
+*.swp
+*.kate-swp
+*~
+.DS_Store
+# node (none today, but just in case)
+node_modules/
